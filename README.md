@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/506.png" alt="PronoteXP" width="120" />
+<img src="frontend/assets/506.png" alt="PronoteXP" width="120" />
 
 # PronoteXP
 
