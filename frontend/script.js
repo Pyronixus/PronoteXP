@@ -1,3 +1,10 @@
+const RENDER_BACKEND_URL = "https://pronotexp-api.onrender.com";
+const API_BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? ""
+    : RENDER_BACKEND_URL;
+
 // UI state: track the active tab and cached QR payload processed from the uploaded image.
 let currentTab = "qr";
 let extractedQRData = null;
@@ -85,7 +92,7 @@ async function startExport() {
       setStatus("❌ Veuillez saisir votre code PIN à 4 chiffres.", true);
       return;
     }
-    endpoint = "/api/export/qrcode";
+    endpoint = `${API_BASE_URL}/api/export/qrcode`;
     payload = { qr_data: extractedQRData, pin: pin };
 
     // Token-based mode sends the PRONOTE URL, username, and session token to the backend.
@@ -98,7 +105,7 @@ async function startExport() {
       setStatus("❌ Remplissez l'URL, l'identifiant et le jeton.", true);
       return;
     }
-    endpoint = "/api/export/token";
+    endpoint = `${API_BASE_URL}/api/export/token`;
     payload = { url: url, username: user, token: token };
 
     // Manual credentials use the selected ENT/backend login mode when available.
@@ -112,7 +119,7 @@ async function startExport() {
       setStatus("❌ Veuillez remplir tous les champs d'identifiants.", true);
       return;
     }
-    endpoint = "/api/export/credentials";
+    endpoint = `${API_BASE_URL}/api/export/credentials`;
     payload = {
       url: url,
       username: user,
