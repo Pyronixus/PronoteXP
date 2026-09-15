@@ -60,6 +60,10 @@ pronotexp/
 │   ├── main.py           # FastAPI API (export routes + pronotepy)
 │   └── requirements.txt
 ├── frontend/
+│   ├── assets/
+│   │   ├── 32.png
+│   │   ├── 192.png
+│   │   └── 506.png
 │   ├── index.html
 │   ├── script.js
 │   └── style.css
