@@ -16,7 +16,7 @@
 
 ## ✨ Overview
 
-PronoteXP exports your PRONOTE data (grades, timetable, homework, absences, delays, punishments...) into a single `export_pronote.json` file, downloadable directly from your browser.
+PronoteXP exports your PRONOTE data (grades, timetable, homework, absences, delays, punishments...) into a clean JSON file and a structured table workbook. From the category dropdown, you can choose Excel (`.xlsx`) or LibreOffice (`.ods`). In separate-files mode, each selected category becomes its own table file and is removed from the main JSON.
 
 Three login modes are supported:
 
@@ -41,7 +41,7 @@ Three login modes are supported:
 1. The frontend (`index.html` / `script.js`) collects your login credentials based on the selected mode, and decodes the QR code client-side via `jsQR`.
 2. A request is sent to the backend API (`/api/export/qrcode`, `/api/export/token`, or `/api/export/credentials`).
 3. The backend uses [`pronotepy`](https://github.com/bain3/pronotepy) to log into your PRONOTE account and extract all available data.
-4. The generated JSON is returned to the browser and offered for download — nothing is stored server-side.
+4. The generated JSON is returned to the browser. The browser builds the Excel workbook locally, with one worksheet per category, and offers the selected JSON files for download — nothing is stored server-side.
 
 ## 🚀 Usage
 

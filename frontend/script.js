@@ -1,13 +1,33 @@
 const RENDER_BACKEND_URL = "https://pronotexp-api.onrender.com";
-const API_BASE_URL =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? ""
-    : RENDER_BACKEND_URL;
+const isGitHubPages = window.location.hostname.endsWith(".github.io");
+const API_BASE_URL = isGitHubPages ? RENDER_BACKEND_URL : "";
 
 // UI state: track the active tab and cached QR payload processed from the uploaded image.
 let currentTab = "qr";
 let extractedQRData = null;
+let exportedJson = null;
+
+const categoryLabels = {
+  periods: "notes",
+  timetable: "emploi_du_temps",
+  homework: "devoirs",
+  absences: "absences",
+  delays: "retards",
+  punishments: "punitions",
+  news: "actualites",
+  menus: "menus",
+};
+
+const categorySheetLabels = {
+  periods: "Notes et moyennes",
+  timetable: "Emploi du temps",
+  homework: "Devoirs",
+  absences: "Absences",
+  delays: "Retards",
+  punishments: "Punitions",
+  news: "Actualités",
+  menus: "Menus",
+};
 
 // Switch the visible form section while updating the active tab styling.
 function setTab(tab) {
@@ -30,9 +50,227 @@ function setStatus(text, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 
+function openTableModal() {
+  const modal = document.getElementById("table-modal");
+  modal.classList.remove("hidden");
+  document.getElementById("table-format").focus();
+}
+
+function closeTableModal() {
+  document.getElementById("table-modal").classList.add("hidden");
+}
+
+function selectedCategories() {
+  return [...document.querySelectorAll(".category-list input:checked")].map(
+    (input) => input.value,
+  );
+}
+
+function toggleAllCategories() {
+  const inputs = [...document.querySelectorAll(".category-list input")];
+  const shouldCheck = inputs.some((input) => !input.checked);
+  inputs.forEach((input) => {
+    input.checked = shouldCheck;
+  });
+  updateCategorySummary();
+}
+
+function updateCategorySummary() {
+  const count = selectedCategories().length;
+  document.querySelector(".summary-hint").innerText = count
+    ? `${count} catégorie${count > 1 ? "s" : ""}`
+    : "Aucune catégorie";
+}
+
+function downloadBlob(content, filename, type = "application/json") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function preparedExport() {
+  const categories = selectedCategories();
+  const splitFiles = document.getElementById("split-files").checked;
+  const result = {
+    export_metadata: exportedJson.export_metadata || {},
+    user_info: exportedJson.user_info || {},
+  };
+  const separate = {};
+
+  categories.forEach((category) => {
+    result[category] = exportedJson[category] || [];
+    if (splitFiles) {
+      separate[category] = result[category];
+      delete result[category];
+    }
+  });
+  return { result, separate, categories, splitFiles };
+}
+
+function downloadPreparedJson() {
+  if (!exportedJson) return;
+  const { result, separate, categories, splitFiles } = preparedExport();
+  if (!categories.length) {
+    setStatus("❌ Sélectionnez au moins une catégorie.", true);
+    return;
+  }
+  downloadBlob(JSON.stringify(result, null, 2), "export_pronote.json");
+  Object.entries(separate).forEach(([category, data]) => {
+    downloadBlob(JSON.stringify(data, null, 2), `export_pronote_${categoryLabels[category]}.json`);
+  });
+  setStatus(splitFiles ? "✅ JSON principal et fichiers séparés téléchargés." : "✅ JSON téléchargé.");
+}
+
+function flattenObject(value, prefix = "", result = {}) {
+  if (value === null || value === undefined) {
+    result[prefix || "valeur"] = "";
+    return result;
+  }
+  if (typeof value !== "object" || value instanceof Date) {
+    result[prefix || "valeur"] = value;
+    return result;
+  }
+  if (Array.isArray(value)) {
+    result[prefix || "valeur"] = value
+      .map((entry) => typeof entry === "object" ? JSON.stringify(entry) : entry)
+      .join(" | ");
+    return result;
+  }
+  Object.entries(value).forEach(([key, entry]) => {
+    flattenObject(entry, prefix ? `${prefix}_${key}` : key, result);
+  });
+  return result;
+}
+
+function rowsFromValue(value) {
+  if (Array.isArray(value)) {
+    return value.length ? value.map((row) => flattenObject(row)) : [];
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value).map(([key, entry]) => ({
+      champ: key,
+      valeur: typeof entry === "object" && entry !== null
+        ? JSON.stringify(entry)
+        : entry ?? "",
+    }));
+  }
+  return [{ valeur: value ?? "" }];
+}
+
+function rowsForCategory(category, value) {
+  if (category !== "periods" || !Array.isArray(value)) return rowsFromValue(value);
+
+  const rows = [];
+  value.forEach((period) => {
+    (period.grades || []).forEach((grade) => {
+      rows.push({
+        periode: period.name,
+        type: "Note",
+        matiere: grade.subject,
+        date: grade.date,
+        valeur: grade.grade,
+        sur: grade.out_of,
+        coefficient: grade.coefficient,
+        commentaire: grade.comment,
+      });
+    });
+    (period.averages || []).forEach((average) => {
+      rows.push({
+        periode: period.name,
+        type: "Moyenne",
+        matiere: average.subject,
+        valeur: average.student,
+        moyenne_classe: average.class_average,
+        maximum: average.max,
+        minimum: average.min,
+      });
+    });
+  });
+  return rows.length ? rows : rowsFromValue(value);
+}
+
+function addSheet(workbook, name, value, category = "") {
+  const rows = rowsForCategory(category, value);
+  const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ information: "Aucune donnée" }]);
+  const columns = rows.length
+    ? [...new Set(rows.flatMap((row) => Object.keys(row)))]
+    : ["information"];
+  sheet["!cols"] = columns.map((column) => ({ wch: Math.min(Math.max(column.length + 2, 14), 32) }));
+  XLSX.utils.book_append_sheet(workbook, sheet, name.slice(0, 31));
+}
+
+function createWorkbook(categories, includeAllData = true) {
+  const workbook = XLSX.utils.book_new();
+  if (includeAllData) {
+    addSheet(workbook, "Informations", exportedJson.user_info || {});
+    addSheet(workbook, "Métadonnées", exportedJson.export_metadata || {});
+  }
+  categories.forEach((category) => {
+    addSheet(workbook, categorySheetLabels[category], exportedJson[category], category);
+  });
+  return workbook;
+}
+
+function downloadTableFiles() {
+  if (!exportedJson) return;
+  const { categories, splitFiles } = preparedExport();
+  if (!categories.length) {
+    setStatus("❌ Sélectionnez au moins une catégorie.", true);
+    return;
+  }
+  const format = document.getElementById("table-format").value;
+  const extension = format === "ods" ? "ods" : "xlsx";
+  const bookType = extension;
+
+  if (splitFiles) {
+    categories.forEach((category) => {
+      const workbook = createWorkbook([category], false);
+      XLSX.writeFile(workbook, `export_pronote_${categoryLabels[category]}.${extension}`, { bookType });
+    });
+    setStatus(`✅ ${categories.length} fichiers ${extension.toUpperCase()} téléchargés.`);
+    closeTableModal();
+    return;
+  }
+
+  const workbook = createWorkbook(categories);
+  XLSX.writeFile(workbook, `export_pronote.${extension}`, { bookType });
+  setStatus(`✅ Tableau ${extension.toUpperCase()} téléchargé.`);
+  closeTableModal();
+}
+
 // Restrict the PIN field to digits only, mirroring the 4-digit constraint on input.
 document.getElementById("qr-pin").addEventListener("input", (e) => {
   e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
+});
+
+document.querySelectorAll(".category-list input").forEach((input) => {
+  input.addEventListener("change", updateCategorySummary);
+});
+updateCategorySummary();
+
+const categoryMenu = document.querySelector(".category-menu");
+const categorySummary = categoryMenu.querySelector("summary");
+categorySummary.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (categoryMenu.classList.contains("is-open")) {
+    categoryMenu.classList.add("is-closing");
+    categoryMenu.classList.remove("is-open");
+    window.setTimeout(() => {
+      categoryMenu.open = false;
+      categoryMenu.classList.remove("is-closing");
+    }, 220);
+    return;
+  }
+  categoryMenu.open = true;
+  window.requestAnimationFrame(() => categoryMenu.classList.add("is-open"));
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeTableModal();
 });
 
 // Clear any previously decoded QR payload as soon as a new file is picked.
@@ -75,8 +313,8 @@ function readQRCodeImage(input) {
 // Main request logic: validate form fields, call the correct endpoint, and save the export.
 async function startExport() {
   const btnExport = document.getElementById("btn-export");
-  const btnDownload = document.getElementById("btn-download");
-  btnDownload.classList.add("hidden");
+  document.getElementById("export-options").classList.add("hidden");
+  exportedJson = null;
 
   let endpoint = "";
   let payload = {};
@@ -145,13 +383,8 @@ async function startExport() {
       throw new Error(errorMsg.detail || "Erreur d'exportation.");
     }
 
-    const jsonResult = await res.json();
-
-    const dataStr =
-      "data:text/json;charset=utf-8," +
-      encodeURIComponent(JSON.stringify(jsonResult, null, 4));
-    btnDownload.href = dataStr;
-    btnDownload.classList.remove("hidden");
+    exportedJson = await res.json();
+    document.getElementById("export-options").classList.remove("hidden");
 
     setStatus("🎉 Données exportées avec succès !");
   } catch (err) {

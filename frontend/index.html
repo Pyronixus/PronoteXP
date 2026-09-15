@@ -10,6 +10,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="assets/192.png">
     <link rel="apple-touch-icon" sizes="192x192" href="assets/192.png">
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -86,11 +87,58 @@
 
         <div class="actions">
             <button id="btn-export" onclick="startExport()" class="btn primary">Exporter les données</button>
-            <a id="btn-download" download="export_pronote.json" class="btn success hidden">Télécharger export_pronote.json</a>
         </div>
+
+        <section id="export-options" class="export-options hidden" aria-labelledby="export-options-title">
+            <div class="options-heading">
+                <div>
+                    <h2 id="export-options-title">Contenu de l’export</h2>
+                    <p>Choisissez les données à mettre dans Excel et dans les fichiers JSON.</p>
+                </div>
+                <button type="button" class="text-button" onclick="toggleAllCategories()">Tout cocher</button>
+            </div>
+            <details class="category-menu">
+                <summary>Catégories sélectionnées <span class="summary-hint">8 catégories</span></summary>
+                <div class="category-list">
+                    <label class="check-item"><input type="checkbox" value="periods" checked><span>Notes et moyennes</span></label>
+                    <label class="check-item"><input type="checkbox" value="timetable" checked><span>Emploi du temps</span></label>
+                    <label class="check-item"><input type="checkbox" value="homework" checked><span>Devoirs</span></label>
+                    <label class="check-item"><input type="checkbox" value="absences" checked><span>Absences</span></label>
+                    <label class="check-item"><input type="checkbox" value="delays" checked><span>Retards</span></label>
+                    <label class="check-item"><input type="checkbox" value="punishments" checked><span>Punitions</span></label>
+                    <label class="check-item"><input type="checkbox" value="news" checked><span>Actualités</span></label>
+                    <label class="check-item"><input type="checkbox" value="menus" checked><span>Menus</span></label>
+                </div>
+            </details>
+            <label class="split-option">
+                <input type="checkbox" id="split-files">
+                <span><strong>Enregistrer les catégories séparément</strong><small>Les catégories cochées seront retirées du JSON principal et téléchargées dans des fichiers individuels.</small></span>
+            </label>
+            <div class="download-actions">
+                <button id="btn-download-json" type="button" onclick="downloadPreparedJson()" class="btn success">Télécharger le JSON</button>
+                <button id="btn-download-table" type="button" onclick="openTableModal()" class="btn excel">Télécharger le tableau</button>
+            </div>
+            <p id="download-hint">Le tableau contient une feuille par catégorie. Le mode séparé crée un fichier par catégorie.</p>
+        </section>
 
         <p id="status" role="status" aria-live="polite"></p>
     </main>
+
+    <div id="table-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="table-modal-title">
+        <div class="modal-backdrop" onclick="closeTableModal()"></div>
+        <div class="modal-panel">
+            <button type="button" class="modal-close" aria-label="Fermer" onclick="closeTableModal()"></button>
+            <p class="modal-kicker">Format du tableau</p>
+            <h2 id="table-modal-title">Dans quel format souhaitez-vous enregistrer le tableau?</h2>
+            <p class="modal-copy">Le fichier sera organisé en feuilles et pourra être ouvert avec le logiciel choisi.</p>
+            <label class="modal-field" for="table-format">Format du fichier</label>
+            <select id="table-format">
+                <option value="xlsx">Excel (.xlsx)</option>
+                <option value="ods">LibreOffice (.ods)</option>
+            </select>
+            <button id="modal-download-table" type="button" onclick="downloadTableFiles()" class="btn excel">Télécharger le tableau</button>
+        </div>
+    </div>
 </body>
 <script src="script.js"></script>
 </html>

@@ -152,11 +152,32 @@ def export_qrcode(payload: QRCodePayload):
         except Exception:
             raise HTTPException(status_code=400, detail="Contenu du QR Code invalide.")
 
+    if not isinstance(qr_dict, dict):
+        raise HTTPException(status_code=400, detail="Le QR Code doit contenir un objet JSON.")
+
+    missing_keys = [key for key in ("login", "jeton", "url") if not qr_dict.get(key)]
+    if missing_keys:
+        missing = ", ".join(missing_keys)
+        raise HTTPException(
+            status_code=400,
+            detail=f"QR Code PRONOTE incomplet : champ(s) manquant(s) : {missing}.",
+        )
+
+    if not payload.pin.isdigit() or len(payload.pin) != 4:
+        raise HTTPException(status_code=400, detail="Le code PIN doit contenir exactement 4 chiffres.")
+
     try:
         device_uuid = str(uuid.uuid4())
         client = pronotepy.Client.qrcode_login(qr_dict, payload.pin, device_uuid)
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"QR Code PRONOTE invalide : champ {e.args[0]} absent.")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erreur QR Code : {str(e)}")
+        error_message = str(e).strip()
+        if "invalid confirmation code" in error_message.lower():
+            error_message = "Code PIN incorrect pour ce QR Code."
+        elif not error_message:
+            error_message = "Le QR Code n'a pas pu être traité par PRONOTE."
+        raise HTTPException(status_code=400, detail=f"Erreur QR Code : {error_message}")
 
     if not client.logged_in:
         raise HTTPException(status_code=401, detail="Code PIN invalide ou QR code expiré.")
