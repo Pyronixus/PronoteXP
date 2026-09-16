@@ -41,6 +41,9 @@ def safe_iso(val: Any) -> Any:
         return val.isoformat()
     return val
 
+def record_error(export_data: Dict[str, Any], key: str, exc: Exception) -> None:
+    export_data["export_metadata"].setdefault("errors", {})[key] = f"{type(exc).__name__}: {exc}"
+
 def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
     today = datetime.date.today()
 
@@ -109,9 +112,53 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
             except Exception:
                 pass
 
+            try:
+                for absence in period.absences:
+                    export_data["absences"].append({
+                        "id": absence.id,
+                        "from": safe_iso(absence.from_date),
+                        "to": safe_iso(absence.to_date),
+                        "justified": absence.justified,
+                        "hours": absence.hours,
+                        "days": absence.days,
+                        "reasons": absence.reasons,
+                    })
+            except Exception as e:
+                record_error(export_data, f"absences[{period.name}]", e)
+
+            try:
+                for delay in period.delays:
+                    export_data["delays"].append({
+                        "id": delay.id,
+                        "date": safe_iso(delay.date),
+                        "minutes": delay.minutes,
+                        "justified": delay.justified,
+                        "justification": delay.justification,
+                        "reasons": delay.reasons,
+                    })
+            except Exception as e:
+                record_error(export_data, f"delays[{period.name}]", e)
+
+            try:
+                for punishment in period.punishments:
+                    export_data["punishments"].append({
+                        "id": punishment.id,
+                        "given": safe_iso(punishment.given),
+                        "during_lesson": punishment.during_lesson,
+                        "exclusion": punishment.exclusion,
+                        "homework": punishment.homework,
+                        "circumstances": punishment.circumstances,
+                        "nature": punishment.nature,
+                        "reasons": punishment.reasons,
+                        "giver": punishment.giver,
+                        "duration": punishment.duration.total_seconds() / 60 if punishment.duration else None,
+                    })
+            except Exception as e:
+                record_error(export_data, f"punishments[{period.name}]", e)
+
             export_data["periods"].append(p_data)
-    except Exception:
-        pass
+    except Exception as e:
+        record_error(export_data, "periods", e)
 
     try:
         start_tt = today - datetime.timedelta(days=60)
@@ -125,8 +172,8 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
                 "end": safe_iso(lesson.end),
                 "canceled": lesson.canceled,
             })
-    except Exception:
-        pass
+    except Exception as e:
+        record_error(export_data, "timetable", e)
 
     try:
         start_hw = today - datetime.timedelta(days=60)
@@ -138,8 +185,54 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
                 "done": hw.done,
                 "date": safe_iso(hw.date),
             })
-    except Exception:
-        pass
+    except Exception as e:
+        record_error(export_data, "homework", e)
+
+    try:
+        start_news = today - datetime.timedelta(days=60)
+        end_news = today + datetime.timedelta(days=30)
+        for info in client.information_and_surveys(date_from=start_news, date_to=end_news):
+            try:
+                content = info.content()
+            except Exception:
+                content = None
+            export_data["news"].append({
+                "id": info.id,
+                "title": info.title,
+                "author": info.author,
+                "category": info.category,
+                "read": info.read,
+                "creation_date": safe_iso(info.creation_date),
+                "start_date": safe_iso(info.start_date),
+                "end_date": safe_iso(info.end_date),
+                "content": content,
+            })
+    except Exception as e:
+        record_error(export_data, "news", e)
+
+    try:
+        start_menu = today - datetime.timedelta(days=7)
+        end_menu = today + datetime.timedelta(days=14)
+
+        def food_names(foods):
+            return [f.name for f in foods] if foods else []
+
+        for menu in client.menus(start_menu, end_menu):
+            export_data["menus"].append({
+                "id": menu.id,
+                "name": menu.name,
+                "date": safe_iso(menu.date),
+                "is_lunch": menu.is_lunch,
+                "is_dinner": menu.is_dinner,
+                "first_meal": food_names(menu.first_meal),
+                "main_meal": food_names(menu.main_meal),
+                "side_meal": food_names(menu.side_meal),
+                "other_meal": food_names(menu.other_meal),
+                "cheese": food_names(menu.cheese),
+                "dessert": food_names(menu.dessert),
+            })
+    except Exception as e:
+        record_error(export_data, "menus", e)
 
     return export_data
 

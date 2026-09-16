@@ -29,6 +29,72 @@ const categorySheetLabels = {
   menus: "Menus",
 };
 
+const tableFieldLabels = {
+  periode: "Période",
+  type: "Type",
+  matiere: "Matière",
+  subject: "Matière",
+  teacher: "Professeur",
+  classroom: "Salle",
+  start: "Début",
+  end: "Fin",
+  canceled: "Annulé",
+  description: "Description",
+  done: "Fait",
+  date: "Date",
+  name: "Nom",
+  class_name: "Classe",
+  establishment: "Établissement",
+  grade: "Note",
+  out_of: "Sur",
+  sur: "Sur",
+  coefficient: "Coefficient",
+  comment: "Commentaire",
+  commentaire: "Commentaire",
+  student: "Élève",
+  class_average: "Moyenne de classe",
+  moyenne_classe: "Moyenne de classe",
+  max: "Maximum",
+  maximum: "Maximum",
+  min: "Minimum",
+  minimum: "Minimum",
+  from: "Du",
+  to: "Au",
+  hours: "Heures",
+  justified: "Justifié",
+  reason: "Motif",
+  minutes: "Minutes",
+  nature: "Nature",
+  given_by: "Donné par",
+  exclusion: "Exclusion",
+  duration: "Durée",
+  schedule: "Créneau",
+  during_lesson: "Pendant le cours",
+  title: "Titre",
+  content: "Contenu",
+  category: "Catégorie",
+  read: "Lu",
+  creation_date: "Date de création",
+  start_date: "Date de début",
+  end_date: "Date de fin",
+  is_lunch: "Déjeuner",
+  is_dinner: "Dîner",
+  meal: "Repas",
+  dishes: "Plats",
+  food: "Plats",
+  app: "Application",
+  generated_at: "Généré le",
+  logged_in: "Connecté",
+  information: "Information",
+};
+
+function tableLabel(key) {
+  if (tableFieldLabels[key]) return tableFieldLabels[key];
+  return key
+    .replace(/_/g, " ")
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
 // Switch the visible form section while updating the active tab styling.
 function setTab(tab) {
   currentTab = tab;
@@ -120,9 +186,16 @@ function downloadPreparedJson() {
   }
   downloadBlob(JSON.stringify(result, null, 2), "export_pronote.json");
   Object.entries(separate).forEach(([category, data]) => {
-    downloadBlob(JSON.stringify(data, null, 2), `export_pronote_${categoryLabels[category]}.json`);
+    downloadBlob(
+      JSON.stringify(data, null, 2),
+      `export_pronote_${categoryLabels[category]}.json`,
+    );
   });
-  setStatus(splitFiles ? "✅ JSON principal et fichiers séparés téléchargés." : "✅ JSON téléchargé.");
+  setStatus(
+    splitFiles
+      ? "✅ JSON principal et fichiers séparés téléchargés."
+      : "✅ JSON téléchargé.",
+  );
 }
 
 function flattenObject(value, prefix = "", result = {}) {
@@ -136,7 +209,9 @@ function flattenObject(value, prefix = "", result = {}) {
   }
   if (Array.isArray(value)) {
     result[prefix || "valeur"] = value
-      .map((entry) => typeof entry === "object" ? JSON.stringify(entry) : entry)
+      .map((entry) =>
+        typeof entry === "object" ? JSON.stringify(entry) : entry,
+      )
       .join(" | ");
     return result;
   }
@@ -153,16 +228,18 @@ function rowsFromValue(value) {
   if (value && typeof value === "object") {
     return Object.entries(value).map(([key, entry]) => ({
       champ: key,
-      valeur: typeof entry === "object" && entry !== null
-        ? JSON.stringify(entry)
-        : entry ?? "",
+      valeur:
+        typeof entry === "object" && entry !== null
+          ? JSON.stringify(entry)
+          : (entry ?? ""),
     }));
   }
   return [{ valeur: value ?? "" }];
 }
 
 function rowsForCategory(category, value) {
-  if (category !== "periods" || !Array.isArray(value)) return rowsFromValue(value);
+  if (category !== "periods" || !Array.isArray(value))
+    return rowsFromValue(value);
 
   const rows = [];
   value.forEach((period) => {
@@ -195,11 +272,20 @@ function rowsForCategory(category, value) {
 
 function addSheet(workbook, name, value, category = "") {
   const rows = rowsForCategory(category, value);
-  const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ information: "Aucune donnée" }]);
-  const columns = rows.length
-    ? [...new Set(rows.flatMap((row) => Object.keys(row)))]
-    : ["information"];
-  sheet["!cols"] = columns.map((column) => ({ wch: Math.min(Math.max(column.length + 2, 14), 32) }));
+  const translatedRows = (
+    rows.length ? rows : [{ information: "Aucune donnée" }]
+  ).map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([key, entry]) => [tableLabel(key), entry]),
+    ),
+  );
+  const sheet = XLSX.utils.json_to_sheet(translatedRows);
+  const columns = translatedRows.length
+    ? [...new Set(translatedRows.flatMap((row) => Object.keys(row)))]
+    : ["Information"];
+  sheet["!cols"] = columns.map((column) => ({
+    wch: Math.min(Math.max(column.length + 2, 14), 32),
+  }));
   XLSX.utils.book_append_sheet(workbook, sheet, name.slice(0, 31));
 }
 
@@ -210,7 +296,12 @@ function createWorkbook(categories, includeAllData = true) {
     addSheet(workbook, "Métadonnées", exportedJson.export_metadata || {});
   }
   categories.forEach((category) => {
-    addSheet(workbook, categorySheetLabels[category], exportedJson[category], category);
+    addSheet(
+      workbook,
+      categorySheetLabels[category],
+      exportedJson[category],
+      category,
+    );
   });
   return workbook;
 }
@@ -229,9 +320,15 @@ function downloadTableFiles() {
   if (splitFiles) {
     categories.forEach((category) => {
       const workbook = createWorkbook([category], false);
-      XLSX.writeFile(workbook, `export_pronote_${categoryLabels[category]}.${extension}`, { bookType });
+      XLSX.writeFile(
+        workbook,
+        `export_pronote_${categoryLabels[category]}.${extension}`,
+        { bookType },
+      );
     });
-    setStatus(`✅ ${categories.length} fichiers ${extension.toUpperCase()} téléchargés.`);
+    setStatus(
+      `✅ ${categories.length} fichiers ${extension.toUpperCase()} téléchargés.`,
+    );
     closeTableModal();
     return;
   }
