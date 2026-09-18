@@ -164,9 +164,15 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
         start_tt = today - datetime.timedelta(days=60)
         end_tt = today + datetime.timedelta(days=30)
         for lesson in client.lessons(start_tt, end_tt):
+            teacher_val = None
+            if getattr(lesson, "teacher", None):
+                teacher_val = lesson.teacher if isinstance(lesson.teacher, str) else getattr(lesson.teacher, "name", str(lesson.teacher))
+            elif getattr(lesson, "teacher_name", None):
+                teacher_val = lesson.teacher_name
+
             export_data["timetable"].append({
                 "subject": lesson.subject.name if lesson.subject else None,
-                "teacher": getattr(lesson, "teacher_name", getattr(lesson, "teacher", None)),
+                "teacher": teacher_val,
                 "classroom": lesson.classroom,
                 "start": safe_iso(lesson.start),
                 "end": safe_iso(lesson.end),
@@ -178,7 +184,11 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
     try:
         start_hw = today - datetime.timedelta(days=60)
         end_hw = today + datetime.timedelta(days=30)
-        for hw in client.homework(start_hw, end_hw):
+        
+        # Récupération explicite des devoirs auprès du serveur PRONOTE
+        fetched_homework = client.homework(start_hw, end_hw)
+        
+        for hw in fetched_homework:
             export_data["homework"].append({
                 "subject": hw.subject.name if hw.subject else None,
                 "description": hw.description,
@@ -187,24 +197,32 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
             })
     except Exception as e:
         record_error(export_data, "homework", e)
-
+        
     try:
         start_news = today - datetime.timedelta(days=60)
         end_news = today + datetime.timedelta(days=30)
-        for info in client.information_and_surveys(date_from=start_news, date_to=end_news):
+        
+        try:
+            news_items = client.information_and_surveys(date_from=start_news, date_to=end_news)
+        except TypeError:
+            news_items = client.information_and_surveys()
+
+        for info in news_items:
+            content = None
             try:
-                content = info.content()
+                content = info.content() if callable(getattr(info, "content", None)) else getattr(info, "content", None)
             except Exception:
-                content = None
+                pass
+
             export_data["news"].append({
-                "id": info.id,
-                "title": info.title,
-                "author": info.author,
-                "category": info.category,
-                "read": info.read,
-                "creation_date": safe_iso(info.creation_date),
-                "start_date": safe_iso(info.start_date),
-                "end_date": safe_iso(info.end_date),
+                "id": getattr(info, "id", None),
+                "title": getattr(info, "title", None),
+                "author": getattr(info, "author", None),
+                "category": getattr(info, "category", None),
+                "read": getattr(info, "read", None),
+                "creation_date": safe_iso(getattr(info, "creation_date", None)),
+                "start_date": safe_iso(getattr(info, "start_date", None)),
+                "end_date": safe_iso(getattr(info, "end_date", None)),
                 "content": content,
             })
     except Exception as e:
@@ -215,21 +233,34 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
         end_menu = today + datetime.timedelta(days=14)
 
         def food_names(foods):
-            return [f.name for f in foods] if foods else []
+            if not foods:
+                return []
+            res = []
+            for f in foods:
+                if isinstance(f, str):
+                    res.append(f)
+                else:
+                    res.append(getattr(f, "name", str(f)))
+            return res
 
-        for menu in client.menus(start_menu, end_menu):
+        try:
+            menus_list = client.menus(start_menu, end_menu)
+        except TypeError:
+            menus_list = client.menus()
+
+        for menu in menus_list:
             export_data["menus"].append({
-                "id": menu.id,
-                "name": menu.name,
-                "date": safe_iso(menu.date),
-                "is_lunch": menu.is_lunch,
-                "is_dinner": menu.is_dinner,
-                "first_meal": food_names(menu.first_meal),
-                "main_meal": food_names(menu.main_meal),
-                "side_meal": food_names(menu.side_meal),
-                "other_meal": food_names(menu.other_meal),
-                "cheese": food_names(menu.cheese),
-                "dessert": food_names(menu.dessert),
+                "id": getattr(menu, "id", None),
+                "name": getattr(menu, "name", None),
+                "date": safe_iso(getattr(menu, "date", None)),
+                "is_lunch": getattr(menu, "is_lunch", None),
+                "is_dinner": getattr(menu, "is_dinner", None),
+                "first_meal": food_names(getattr(menu, "first_meal", [])),
+                "main_meal": food_names(getattr(menu, "main_meal", [])),
+                "side_meal": food_names(getattr(menu, "side_meal", [])),
+                "other_meal": food_names(getattr(menu, "other_meal", [])),
+                "cheese": food_names(getattr(menu, "cheese", [])),
+                "dessert": food_names(getattr(menu, "dessert", [])),
             })
     except Exception as e:
         record_error(export_data, "menus", e)
