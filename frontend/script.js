@@ -38,6 +38,30 @@ function closeTableModal() {
   document.getElementById("table-modal").classList.add("hidden");
 }
 
+function isEmptyCategory(value) {
+  if (value === null || value === undefined || value === "") return true;
+  if (Array.isArray(value))
+    return value.length === 0 || value.every(isEmptyCategory);
+  if (typeof value === "object")
+    return Object.values(value).every(isEmptyCategory);
+  return false;
+}
+
+function updateCategoryStates() {
+  document.querySelectorAll(".category-list .check-item").forEach((item) => {
+    const category = item.dataset.category;
+    const empty = isEmptyCategory(exportedJson?.[category]);
+    item.classList.toggle("is-empty", empty);
+    item.querySelector(".category-badge").innerText = empty
+      ? "Vide"
+      : item.dataset.scope;
+    item.setAttribute(
+      "aria-label",
+      `${item.querySelector("strong").innerText}${empty ? " - catégorie vide" : ""}`,
+    );
+  });
+}
+
 function selectedCategories() {
   return [...document.querySelectorAll(".category-list input:checked")].map(
     (input) => input.value,
@@ -88,7 +112,9 @@ categorySummary.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeTableModal();
+  if (event.key === "Escape") {
+    closeTableModal();
+  }
 });
 
 // Clear any previously decoded QR payload as soon as a new file is picked.
@@ -202,6 +228,7 @@ async function startExport() {
     }
 
     exportedJson = await res.json();
+    updateCategoryStates();
     document.getElementById("export-options").classList.remove("hidden");
 
     setStatus("🎉 Données exportées avec succès !");

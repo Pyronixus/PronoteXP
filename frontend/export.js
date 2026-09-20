@@ -148,6 +148,18 @@ function periodsRows(value) {
   if (!Array.isArray(value)) return genericRows(value);
   const rows = [];
   value.forEach((period) => {
+    if (
+      period.overall_average !== null &&
+      period.overall_average !== undefined
+    ) {
+      rows.push({
+        Période: period.name,
+        Type: "Moyenne générale",
+        Matière: "Toutes les matières",
+        Valeur: period.overall_average,
+        "Moyenne classe": period.class_overall_average ?? "",
+      });
+    }
     (period.grades || []).forEach((grade) => {
       rows.push({
         Période: period.name,
@@ -158,6 +170,7 @@ function periodsRows(value) {
         Sur: grade.out_of,
         Coefficient: grade.coefficient,
         Commentaire: grade.comment,
+        "Moyenne classe": grade.average,
       });
     });
     (period.averages || []).forEach((average) => {
@@ -166,6 +179,7 @@ function periodsRows(value) {
         Type: "Moyenne",
         Matière: average.subject,
         Valeur: average.student,
+        Sur: average.out_of,
         "Moyenne classe": average.class_average,
         Max: average.max,
         Min: average.min,
@@ -190,6 +204,7 @@ function timetableRows(value) {
 function homeworkRows(value) {
   if (!Array.isArray(value) || !value.length) return genericRows(value);
   return value.map((hw) => ({
+    ID: hw.id ?? "",
     Matière: hw.subject ?? "",
     Description: hw.description ?? "",
     "À faire pour le": humanizeValue(hw.date),
@@ -279,6 +294,66 @@ function rowsForCategory(category, value) {
   return builder ? builder(value) : genericRows(value);
 }
 
+const TABLE_PALETTE = [
+  ["1D4ED8", "DBEAFE"],
+  ["047857", "D1FAE5"],
+  ["B45309", "FEF3C7"],
+  ["BE123C", "FFE4E6"],
+  ["6D28D9", "EDE9FE"],
+  ["0E7490", "CFFAFE"],
+  ["C2410C", "FFEDD5"],
+  ["4338CA", "E0E7FF"],
+  ["15803D", "DCFCE7"],
+  ["A21CAF", "FAE8FF"],
+  ["0369A1", "E0F2FE"],
+  ["9F1239", "FCE7F3"],
+];
+
+function paletteIndex(value) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash % TABLE_PALETTE.length;
+}
+
+function rowColor(row, category, rowIndex) {
+  const subject = String(row["Matière"] || row.subject || "").trim();
+  const key = subject
+    ? `subject:${subject.toLocaleLowerCase("fr-FR")}`
+    : `category:${category || "general"}:${rowIndex}`;
+  return TABLE_PALETTE[paletteIndex(key)];
+}
+
+function shouldColorTables() {
+  return document.getElementById("color-tables")?.checked !== false;
+}
+
+function styleSheet(sheet, columns, rows, category) {
+  const colorTables = shouldColorTables();
+  const range = XLSX.utils.decode_range(sheet["!ref"] || "A1");
+  for (let row = range.s.r; row <= range.e.r; row += 1) {
+    for (let column = range.s.c; column <= range.e.c; column += 1) {
+      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: column })];
+      if (!cell) continue;
+      if (!colorTables) continue;
+      const colors =
+        row === 0
+          ? ["172033", "E8EEF7"]
+          : rowColor(rows[row - 1] || {}, category, row - 1);
+      cell.s = {
+        font: { color: { rgb: `FF${colors[0]}` }, bold: row === 0 },
+        fill: { patternType: "solid", fgColor: { rgb: `FF${colors[1]}` } },
+        alignment: { vertical: "top", wrapText: row === 0 },
+      };
+    }
+  }
+  sheet["!cols"] = columns.map((column) => ({
+    wch: Math.min(Math.max(column.length + 2, 12), 30),
+  }));
+  if (rows.length > 1) sheet["!autofilter"] = { ref: sheet["!ref"] };
+}
+
 function downloadBlob(content, filename, type = "application/json") {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -337,9 +412,7 @@ function addSheet(workbook, name, value, category = "") {
   const columns = rows.length
     ? [...new Set(rows.flatMap((row) => Object.keys(row)))]
     : ["Information"];
-  sheet["!cols"] = columns.map((column) => ({
-    wch: Math.min(Math.max(column.length + 2, 14), 32),
-  }));
+  styleSheet(sheet, columns, rows, category);
   XLSX.utils.book_append_sheet(workbook, sheet, name.slice(0, 31));
 }
 

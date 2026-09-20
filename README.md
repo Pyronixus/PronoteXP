@@ -16,77 +16,96 @@
 
 ## ✨ Overview
 
-PronoteXP exports your PRONOTE data (grades, timetable, homework, absences, delays, punishments...) into a clean JSON file and a structured table workbook. From the category dropdown, you can choose Excel (`.xlsx`) or LibreOffice (`.ods`). In separate-files mode, each selected category becomes its own table file and is removed from the main JSON.
+PronoteXP exports your PRONOTE data into a clean JSON export and a spreadsheet workbook. It supports the main PRONOTE categories such as grades, timetable, homework, absences, delays, punishments, news, and menus.
+
+The interface lets you:
+
+- choose a login mode: QR Code, Token / URL, or credentials,
+- select export categories from the UI,
+- download the result as JSON and as an Excel (`.xlsx`) or LibreOffice (`.ods`) workbook,
+- split the JSON into one file per category using the separate-files option,
+- keep everything local to the browser after the API response is received.
 
 Three login modes are supported:
 
-| Mode | Description |
-|---|---|
-| **QR Code** | Scan of the PRONOTE mobile login QR code + PIN code |
-| **Token / URL** | Establishment URL + username + session token |
-| **Credentials** | Username + password, with or without an ENT (MonLycée.net, Académie de Versailles, Open ENT NG...) |
+| Mode            | Description                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| **QR Code**     | Scan the PRONOTE mobile login QR code + 4-digit PIN                                                    |
+| **Token / URL** | PRONOTE URL + username + session token                                                                 |
+| **Credentials** | URL + username + password, with an optional ENT (MonLycée.net, Académie de Versailles, Open ENT NG...) |
 
 ## 🧠 How it works
 
-```
-┌─────────────┐      POST request        ┌──────────────────┐      pronotepy      ┌──────────┐
-│  Frontend    │ ───────────────────────▶ │   FastAPI backend │ ──────────────────▶ │ PRONOTE  │
-│ (index.html) │                          │     (main.py)      │                     │ (ENT)    │
-└─────────────┘ ◀─────────────────────── └──────────────────┘ ◀────────────────── └──────────┘
-      │                 export_pronote.json (JSON)
+```text
+┌─────────────┐      HTTP POST       ┌────────────────────┐      pronotepy      ┌──────────┐
+│  Frontend   │ ───────────────────▶ │ FastAPI backend    │ ──────────────────▶ │ PRONOTE  │
+│ (index.html)│                      │ (backend/main.py)  │                     │ (ENT)    │
+└─────────────┘ ◀────────────────── └────────────────────┘ ◀────────────────── └──────────┘
+      │                 JSON export returned to browser
       ▼
-   Local download
+   Local generation of XLSX / ODS + JSON download
 ```
 
-1. The frontend (`index.html` / `script.js`) collects your login credentials based on the selected mode, and decodes the QR code client-side via `jsQR`.
-2. A request is sent to the backend API (`/api/export/qrcode`, `/api/export/token`, or `/api/export/credentials`).
-3. The backend uses [`pronotepy`](https://github.com/bain3/pronotepy) to log into your PRONOTE account and extract all available data.
-4. The generated JSON is returned to the browser. The browser builds the Excel workbook locally, with one worksheet per category, and offers the selected JSON files for download — nothing is stored server-side.
+1. The browser collects the login information based on the selected mode and decodes the QR code client-side with `jsQR`.
+2. A request is sent to one of the backend routes: `/api/export/qrcode`, `/api/export/token`, or `/api/export/credentials`.
+3. The backend authenticates with PRONOTE via `pronotepy` and extracts the requested data.
+4. The result is returned to the browser where the workbook is generated locally and the files are downloaded.
+5. Nothing is stored server-side and no export is persisted on the API.
 
 ## 🚀 Usage
 
 Two ways to run PronoteXP:
 
-- **Online**: the frontend is hosted on GitHub Pages and talks to a backend API deployed on Render — no installation needed.
-- **Locally**: spin up everything (venv, dependencies, server) with a single command via `run.py`.
+- **Online**: the frontend is hosted on GitHub Pages and the backend is deployed on Render.
+- **Locally**: install the dependencies and start the app from the repository with `run.py`.
 
-See [QUICKSTART.md](QUICKSTART.md) for the details of both methods.
+See [QUICKSTART.md](QUICKSTART.md) for full setup instructions.
+
+## 📦 Features
+
+- Export to JSON with optional per-category split files.
+- Workbook export in `.xlsx` or `.ods` via the browser.
+- Automatic detection of empty categories in the UI.
+- One sheet per category and metadata sheet in the generated workbook.
+- Privacy-first behavior: credentials are only used for the export request and are not stored.
 
 ## 📁 Project structure
 
-```
+```text
 pronotexp/
 ├── backend/
-│   ├── main.py           # FastAPI API (export routes + pronotepy)
+│   ├── main.py           # FastAPI server and PRONOTE extraction routes
 │   └── requirements.txt
 ├── frontend/
 │   ├── assets/
 │   │   ├── 32.png
 │   │   ├── 192.png
 │   │   └── 506.png
-│   ├── index.html
-│   ├── script.js
+│   ├── export.js         # Worksheet / JSON export logic
+│   ├── index.html        # User interface
+│   ├── script.js         # Login flow and API calls
 │   └── style.css
 ├── run.py                # Local launcher (venv + install + uvicorn)
 ├── LICENSE
 ├── README.md
 ├── QUICKSTART.md
-└── CONTRIBUTING.md
+├── CONTRIBUTING.md
+└── .gitignore
 ```
 
 ## 🔒 Privacy
 
-Your credentials only pass through for the duration of a single request to PRONOTE and are **never saved**. No data is persisted server-side: the generated export is sent straight back to the browser.
+Your credentials are used only during the PRONOTE session needed for the export. They are never saved to disk and no data is kept server-side after the response is sent back to the browser.
 
 ## 📄 License
 
-Distributed under the **MIT** license. See the [LICENSE](LICENSE) file for the full text.
+Distributed under the **MIT** license. See [LICENSE](LICENSE) for the full text.
 
-```
+```text
 MIT License
 Copyright (c) 2026 Pyro
 ```
 
 ## 🤝 Contributing
 
-Contributions are welcome! Check out [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+Contributions are welcome. Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md).

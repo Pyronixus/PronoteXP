@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="assets/192.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="assets/192.png" />
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   </head>
 
   <body>
@@ -192,52 +192,108 @@
             <span class="summary-hint">8 catégories</span>
           </summary>
           <div class="category-list">
-            <label class="check-item" data-category="periods" data-scope="Évaluations">
+            <label
+              class="check-item"
+              data-category="periods"
+              data-scope="Évaluations"
+            >
               <input type="checkbox" value="periods" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Notes et moyennes</strong><small>Résultats, coefficients et bilans</small></span>
+              <span class="category-copy"
+                ><strong>Notes et moyennes</strong
+                ><small>Résultats, coefficients et bilans</small></span
+              >
               <span class="category-badge">Évaluations</span>
             </label>
-            <label class="check-item" data-category="timetable" data-scope="Organisation">
+            <label
+              class="check-item"
+              data-category="timetable"
+              data-scope="Organisation"
+            >
               <input type="checkbox" value="timetable" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Emploi du temps</strong><small>Cours, salles et professeurs</small></span>
+              <span class="category-copy"
+                ><strong>Emploi du temps</strong
+                ><small>Cours, salles et professeurs</small></span
+              >
               <span class="category-badge">Organisation</span>
             </label>
-            <label class="check-item" data-category="homework" data-scope="Travail">
+            <label
+              class="check-item"
+              data-category="homework"
+              data-scope="Travail"
+            >
               <input type="checkbox" value="homework" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Devoirs</strong><small>À faire, dates et matières</small></span>
+              <span class="category-copy"
+                ><strong>Devoirs</strong
+                ><small>À faire, dates et matières</small></span
+              >
               <span class="category-badge">Travail</span>
             </label>
-            <label class="check-item" data-category="absences" data-scope="Vie scolaire">
+            <label
+              class="check-item"
+              data-category="absences"
+              data-scope="Vie scolaire"
+            >
               <input type="checkbox" value="absences" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Absences</strong><small>Justifiées et non justifiées</small></span>
+              <span class="category-copy"
+                ><strong>Absences</strong
+                ><small>Justifiées et non justifiées</small></span
+              >
               <span class="category-badge">Vie scolaire</span>
             </label>
-            <label class="check-item" data-category="delays" data-scope="Vie scolaire">
+            <label
+              class="check-item"
+              data-category="delays"
+              data-scope="Vie scolaire"
+            >
               <input type="checkbox" value="delays" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Retards</strong><small>Horaires et motifs enregistrés</small></span>
+              <span class="category-copy"
+                ><strong>Retards</strong
+                ><small>Horaires et motifs enregistrés</small></span
+              >
               <span class="category-badge">Vie scolaire</span>
             </label>
-            <label class="check-item" data-category="punishments" data-scope="Suivi">
+            <label
+              class="check-item"
+              data-category="punishments"
+              data-scope="Suivi"
+            >
               <input type="checkbox" value="punishments" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Punitions</strong><small>Suivi des sanctions et observations</small></span>
+              <span class="category-copy"
+                ><strong>Punitions</strong
+                ><small>Suivi des sanctions et observations</small></span
+              >
               <span class="category-badge">Suivi</span>
             </label>
-            <label class="check-item" data-category="news" data-scope="Communication">
+            <label
+              class="check-item"
+              data-category="news"
+              data-scope="Communication"
+            >
               <input type="checkbox" value="news" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Actualités</strong><small>Messages de l’établissement</small></span>
+              <span class="category-copy"
+                ><strong>Actualités</strong
+                ><small>Messages de l’établissement</small></span
+              >
               <span class="category-badge">Info</span>
             </label>
-            <label class="check-item" data-category="menus" data-scope="Services">
+            <label
+              class="check-item"
+              data-category="menus"
+              data-scope="Services"
+            >
               <input type="checkbox" value="menus" checked />
               <span class="check-mark" aria-hidden="true"></span>
-              <span class="category-copy"><strong>Menus</strong><small>Repas proposés à la cantine</small></span>
+              <span class="category-copy"
+                ><strong>Menus</strong
+                ><small>Repas proposés à la cantine</small></span
+              >
               <span class="category-badge">Services</span>
             </label>
           </div>
@@ -307,6 +363,15 @@
           <option value="xlsx">Excel (.xlsx)</option>
           <option value="ods">LibreOffice (.ods)</option>
         </select>
+        <label class="table-color-option">
+          <input id="color-tables" type="checkbox" checked />
+          <span>
+            <strong>Ajouter de la couleur</strong>
+            <small
+              >Le tableau sera coloré en fonction de la catégorie, matières...</small
+            >
+          </span>
+        </label>
         <button
           id="modal-download-table"
           type="button"

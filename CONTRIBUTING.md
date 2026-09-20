@@ -1,17 +1,21 @@
 # 🤝 Contributing
 
-Thanks for contributing to PronoteXP!
+Thanks for contributing to PronoteXP.
 
-## How it works
+## Project structure
 
-The project consists of two independent parts:
+The repository is split into two main parts:
 
-- **`backend/`** — FastAPI API that uses `pronotepy` to connect to PRONOTE and extract data (grades, timetable, homework, absences, delays, punishments).
-- **`frontend/`** — Static interface (vanilla HTML/CSS/JS) that collects credentials and calls the API.
+- **`backend/`**: FastAPI API using `pronotepy` to authenticate to PRONOTE and extract data.
+- **`frontend/`**: static HTML, CSS, and JavaScript interface that collects forms, decodes QR codes, and builds the final export files.
 
-Both communicate only through the REST routes `/api/export/qrcode`, `/api/export/token`, and `/api/export/credentials`.
+The public API routes are:
 
-## Setup
+- `/api/export/qrcode`
+- `/api/export/token`
+- `/api/export/credentials`
+
+## Local setup
 
 ```bash
 git clone https://github.com/<your-org>/pronotexp.git
@@ -19,33 +23,58 @@ cd pronotexp
 python run.py
 ```
 
-`run.py` creates the venv, installs dependencies, and starts the server locally at `http://localhost:8000` with auto-reload — ideal for developing on both backend and frontend at once.
+If `python` is not available on your system, use:
 
-## Workflow
+```bash
+py run.py
+```
 
-1. Fork the repo and create a branch from `main`:
-   ```bash
-   git checkout -b feat/my-feature
-   ```
-2. Make your changes.
-3. Test locally via `run.py`.
-4. Commit with a clear, descriptive message.
-5. Open a pull request describing the change and its motivation.
+This command creates the virtual environment, installs the dependencies from `backend/requirements.txt`, and starts the development server at:
+
+```text
+http://localhost:8000
+```
+
+The frontend is served by the FastAPI app itself, so there is no separate Node/Vite process to configure.
+
+## Development workflow
+
+1. Fork the project and create a feature branch.
+2. Make your changes locally.
+3. Run the app with `run.py` and test the relevant flow in the browser.
+4. Keep the export logic and UI behavior aligned.
+5. Commit with a clear, descriptive message.
+6. Open a pull request describing the motivation and the impact of the change.
 
 ## Guidelines
 
-- **Backend**: follow the existing typing (Pydantic / type hints), keep export routes stateless (no user data storage).
-- **Frontend**: don't add dependencies without reason; styling follows the CSS variables already defined in `style.css`.
-- **Security**: no credentials, passwords, or tokens should ever be logged or persisted.
-- **Commits**: one commit = one logical change.
+- **Backend**: keep the export routes stateless and avoid persisting user data.
+- **Frontend**: prefer the existing vanilla JS structure instead of adding a framework or new heavy dependencies.
+- **Security**: never log credentials, tokens, or private student data.
+- **Compatibility**: preserve the three login modes and ensure the exported JSON remains consistent.
+- **Commits**: keep each commit focused on one logical change.
+
+## Testing locally
+
+Before opening a pull request, validate the feature in context:
+
+- QR code export flow,
+- token / URL login flow,
+- credentials login flow,
+- workbook generation (`.xlsx` / `.ods`),
+- JSON split-file mode.
+
+A simple local validation is to run the project, log in with a test account, export one category, and verify that the downloaded file is correctly generated.
 
 ## Reporting a bug
 
-Open an issue with:
-- The login mode used (QR / Token / Credentials)
-- The exact error message
-- Steps to reproduce
+When opening an issue, include:
+
+- the login mode used (QR / Token / Credentials),
+- the exact error message,
+- the reproduction steps,
+- whether the issue happens in hosted mode or local mode.
 
 ## License
 
-By contributing, you agree that your changes will be distributed under the project's **MIT** license — see [LICENSE](LICENSE).
+By contributing, you agree that your changes will be distributed under the project's MIT license. See [LICENSE](LICENSE) for details.

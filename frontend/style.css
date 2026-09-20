@@ -447,7 +447,11 @@ input[type="file"]::-webkit-file-upload-button:hover {
   padding: 0.72rem 0.65rem;
   border: 1px solid var(--border-soft);
   border-radius: 13px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.075),
+    rgba(255, 255, 255, 0.025)
+  );
   color: var(--text-dim);
   font-size: 0.69rem;
   cursor: pointer;
@@ -463,7 +467,12 @@ input[type="file"]::-webkit-file-upload-button:hover {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, transparent 25%, rgba(91, 232, 176, 0.14) 50%, transparent 75%);
+  background: linear-gradient(
+    115deg,
+    transparent 25%,
+    rgba(91, 232, 176, 0.14) 50%,
+    transparent 75%
+  );
   transform: translateX(-125%);
   pointer-events: none;
 }
@@ -471,22 +480,54 @@ input[type="file"]::-webkit-file-upload-button:hover {
 .check-item:hover {
   transform: translateY(-2px);
   border-color: rgba(79, 163, 255, 0.58);
-  background: linear-gradient(145deg, rgba(79, 163, 255, 0.14), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(
+    145deg,
+    rgba(79, 163, 255, 0.14),
+    rgba(255, 255, 255, 0.04)
+  );
   box-shadow: 0 8px 18px rgba(5, 9, 28, 0.25);
 }
 
 .check-item:has(input:checked) {
   border-color: rgba(91, 232, 176, 0.55);
-  background: linear-gradient(145deg, rgba(91, 232, 176, 0.13), rgba(47, 107, 255, 0.06));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 20px rgba(13, 42, 53, 0.2);
+  background: linear-gradient(
+    145deg,
+    rgba(91, 232, 176, 0.13),
+    rgba(47, 107, 255, 0.06)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 20px rgba(13, 42, 53, 0.2);
 }
 
 .check-item:has(input:checked)::after {
   animation: category-sheen 0.65s ease-out;
 }
 
+.check-item.is-empty,
+.check-item.is-empty:hover {
+  border-color: rgba(194, 200, 220, 0.16);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: none;
+  color: var(--text-faint);
+  filter: grayscale(0.75);
+  transform: none;
+}
+
+.check-item.is-empty .category-copy strong,
+.check-item.is-empty .category-copy small {
+  color: var(--text-faint);
+}
+
+.check-item.is-empty .category-badge {
+  border-color: rgba(194, 200, 220, 0.2);
+  color: var(--text-faint);
+}
+
 @keyframes category-sheen {
-  to { transform: translateX(125%); }
+  to {
+    transform: translateX(125%);
+  }
 }
 
 .split-option input {
@@ -512,7 +553,11 @@ input[type="file"]::-webkit-file-upload-button:hover {
   border: 1px solid rgba(194, 200, 220, 0.55);
   border-radius: 0.34rem;
   background: rgba(255, 255, 255, 0.04);
-  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .check-item .check-mark::after {
@@ -526,7 +571,9 @@ input[type="file"]::-webkit-file-upload-button:hover {
   border-bottom: 2px solid #08131a;
   opacity: 0;
   transform: rotate(-45deg) scale(0.35);
-  transition: opacity 0.14s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    opacity 0.14s ease,
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .check-item input:checked + .check-mark {
@@ -712,6 +759,36 @@ input[type="file"]::-webkit-file-upload-button:hover {
 
 .modal-panel select {
   margin-bottom: 1rem;
+}
+
+.table-color-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.table-color-option input {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--accent-b);
+}
+
+.table-color-option strong,
+.table-color-option small {
+  display: block;
+}
+
+.table-color-option small {
+  margin-top: 0.18rem;
+  color: var(--text-faint);
+  font-size: 0.62rem;
+  line-height: 1.35;
 }
 
 @keyframes modal-fade-in {

@@ -146,7 +146,7 @@ from pathlib import Path
 root_dir = Path(r"{ROOT_DIR}")
 venv_dir = Path(r"{VENV_DIR}")
 
-time.sleep(1)
+time.sleep(3) # wait for the main process to exit
 
 if venv_dir.exists():
     for _ in range(5):

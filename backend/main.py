@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Union
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import pronotepy
 from pronotepy import ent
 
@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 class CredentialsPayload(BaseModel):
-    url: str = Field(..., example="https://URL.index-education.net/pronote/eleve.html")
+    url: str
     username: str
     password: str
     ent_name: Optional[str] = "monlycee_net"
@@ -43,6 +43,78 @@ def safe_iso(val: Any) -> Any:
 
 def record_error(export_data: Dict[str, Any], key: str, exc: Exception) -> None:
     export_data["export_metadata"].setdefault("errors", {})[key] = f"{type(exc).__name__}: {exc}"
+
+
+def normalize_for_dedup(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): normalize_for_dedup(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, list):
+        return [normalize_for_dedup(item) for item in value]
+    if isinstance(value, tuple):
+        return [normalize_for_dedup(item) for item in value]
+    if isinstance(value, set):
+        return sorted(normalize_for_dedup(item) for item in value)
+    return value
+
+
+def deduplicate_records(records: list, keys: Optional[tuple] = None) -> list:
+    unique_records = []
+    seen_signatures = set()
+
+    for record in records:
+        if record is None:
+            continue
+
+        if keys is not None:
+            payload = {key: record.get(key) for key in keys if key in record}
+        else:
+            payload = record
+
+        signature = json.dumps(
+            normalize_for_dedup(payload),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+
+        if signature in seen_signatures:
+            continue
+
+        seen_signatures.add(signature)
+        unique_records.append(record)
+
+    return unique_records
+
+
+def deduplicate_export_data(export_data: Dict[str, Any]) -> Dict[str, Any]:
+    for key in (
+        "periods",
+        "homework",
+        "absences",
+        "delays",
+        "punishments",
+        "news",
+        "menus",
+    ):
+        if isinstance(export_data.get(key), list):
+            export_data[key] = deduplicate_records(export_data[key])
+
+    if "timetable" in export_data and isinstance(export_data["timetable"], list):
+        export_data["timetable"] = export_data["timetable"]
+
+    for period in export_data.get("periods", []):
+        if not isinstance(period, dict):
+            continue
+
+        for nested_key in ("grades", "averages"):
+            if isinstance(period.get(nested_key), list):
+                period[nested_key] = deduplicate_records(period[nested_key])
+
+    return export_data
+
 
 def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
     today = datetime.date.today()
@@ -74,43 +146,68 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
     except Exception:
         pass
 
+    periods = []
     try:
-        for period in client.periods:
+        periods = list(client.periods)
+        for period in periods:
             p_data = {
-                "name": period.name,
-                "start": safe_iso(period.start),
-                "end": safe_iso(period.end),
-                "overall_average": period.overall_average,
-                "class_overall_average": period.class_overall_average,
+                "id": getattr(period, "id", None),
+                "name": getattr(period, "name", None),
+                "start": safe_iso(getattr(period, "start", None)),
+                "end": safe_iso(getattr(period, "end", None)),
+                "overall_average": None,
+                "class_overall_average": None,
                 "grades": [],
                 "averages": [],
             }
 
-            try:
-                for g in period.grades:
-                    p_data["grades"].append({
-                        "id": getattr(g, "id", None),
-                        "subject": g.subject.name if g.subject else None,
-                        "date": safe_iso(g.date),
-                        "grade": g.grade,
-                        "out_of": g.out_of,
-                        "coefficient": g.coefficient,
-                        "comment": g.comment,
-                    })
-            except Exception:
-                pass
+            for field_name in ("overall_average", "class_overall_average"):
+                try:
+                    p_data[field_name] = getattr(period, field_name)
+                except Exception as e:
+                    record_error(export_data, f"periods[{p_data['name']}].{field_name}", e)
 
             try:
-                for avg in period.averages:
-                    p_data["averages"].append({
-                        "subject": avg.subject.name if avg.subject else None,
-                        "student": avg.student,
-                        "class_average": avg.class_average,
-                        "max": avg.max,
-                        "min": avg.min,
-                    })
-            except Exception:
-                pass
+                grades = period.grades
+                for index, grade in enumerate(grades):
+                    try:
+                        subject = getattr(grade, "subject", None)
+                        p_data["grades"].append({
+                            "id": getattr(grade, "id", None),
+                            "subject": getattr(subject, "name", None),
+                            "date": safe_iso(getattr(grade, "date", None)),
+                            "grade": getattr(grade, "grade", None),
+                            "out_of": getattr(grade, "out_of", None),
+                            "coefficient": getattr(grade, "coefficient", None),
+                            "comment": getattr(grade, "comment", None),
+                            "average": getattr(grade, "average", None),
+                            "max": getattr(grade, "max", None),
+                            "min": getattr(grade, "min", None),
+                            "is_bonus": getattr(grade, "is_bonus", False),
+                            "is_optional": getattr(grade, "is_optionnal", False),
+                        })
+                    except Exception as e:
+                        record_error(export_data, f"grades[{p_data['name']}][{index}]", e)
+            except Exception as e:
+                record_error(export_data, f"grades[{p_data['name']}]", e)
+
+            try:
+                averages = period.averages
+                for index, average in enumerate(averages):
+                    try:
+                        subject = getattr(average, "subject", None)
+                        p_data["averages"].append({
+                            "subject": getattr(subject, "name", None),
+                            "student": getattr(average, "student", None),
+                            "out_of": getattr(average, "out_of", None),
+                            "class_average": getattr(average, "class_average", None),
+                            "max": getattr(average, "max", None),
+                            "min": getattr(average, "min", None),
+                        })
+                    except Exception as e:
+                        record_error(export_data, f"averages[{p_data['name']}][{index}]", e)
+            except Exception as e:
+                record_error(export_data, f"averages[{p_data['name']}]", e)
 
             try:
                 for absence in period.absences:
@@ -165,10 +262,11 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
         end_tt = today + datetime.timedelta(days=30)
         for lesson in client.lessons(start_tt, end_tt):
             teacher_val = None
-            if getattr(lesson, "teacher", None):
-                teacher_val = lesson.teacher if isinstance(lesson.teacher, str) else getattr(lesson.teacher, "name", str(lesson.teacher))
+            teacher = getattr(lesson, "teacher", None)
+            if teacher:
+                teacher_val = teacher if isinstance(teacher, str) else getattr(teacher, "name", str(teacher))
             elif getattr(lesson, "teacher_name", None):
-                teacher_val = lesson.teacher_name
+                teacher_val = getattr(lesson, "teacher_name")
 
             export_data["timetable"].append({
                 "subject": lesson.subject.name if lesson.subject else None,
@@ -182,30 +280,43 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
         record_error(export_data, "timetable", e)
 
     try:
-        start_hw = today - datetime.timedelta(days=60)
-        end_hw = today + datetime.timedelta(days=30)
-        
-        # Récupération explicite des devoirs auprès du serveur PRONOTE
+        period_starts = [
+            period.start.date()
+            for period in periods
+            if isinstance(getattr(period, "start", None), datetime.datetime)
+        ]
+        period_ends = [
+            period.end.date()
+            for period in periods
+            if isinstance(getattr(period, "end", None), datetime.datetime)
+        ]
+        start_hw = min(period_starts, default=today - datetime.timedelta(days=365))
+        end_hw = max(period_ends, default=today + datetime.timedelta(days=365))
         fetched_homework = client.homework(start_hw, end_hw)
-        
-        for hw in fetched_homework:
-            export_data["homework"].append({
-                "subject": hw.subject.name if hw.subject else None,
-                "description": hw.description,
-                "done": hw.done,
-                "date": safe_iso(hw.date),
-            })
+
+        for index, homework in enumerate(fetched_homework):
+            try:
+                subject = getattr(homework, "subject", None)
+                export_data["homework"].append({
+                    "id": getattr(homework, "id", None),
+                    "subject": getattr(subject, "name", None),
+                    "description": getattr(homework, "description", None),
+                    "done": getattr(homework, "done", False),
+                    "date": safe_iso(getattr(homework, "date", None)),
+                })
+            except Exception as e:
+                record_error(export_data, f"homework[{index}]", e)
     except Exception as e:
         record_error(export_data, "homework", e)
         
     try:
-        start_news = today - datetime.timedelta(days=60)
-        end_news = today + datetime.timedelta(days=30)
+        start_news = datetime.datetime.combine(today - datetime.timedelta(days=60), datetime.time.min)
+        end_news = datetime.datetime.combine(today + datetime.timedelta(days=30), datetime.time.max)
         
         try:
             news_items = client.information_and_surveys(date_from=start_news, date_to=end_news)
         except TypeError:
-            news_items = client.information_and_surveys()
+            news_items = client.information_and_surveys(start_news, end_news)
 
         for info in news_items:
             content = None
@@ -246,7 +357,7 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
         try:
             menus_list = client.menus(start_menu, end_menu)
         except TypeError:
-            menus_list = client.menus()
+            menus_list = client.menus(start_menu)
 
         for menu in menus_list:
             export_data["menus"].append({
@@ -265,7 +376,7 @@ def extract_pronote_data(client: pronotepy.Client) -> Dict[str, Any]:
     except Exception as e:
         record_error(export_data, "menus", e)
 
-    return export_data
+    return deduplicate_export_data(export_data)
 
 @app.post("/api/export/qrcode")
 def export_qrcode(payload: QRCodePayload):
@@ -347,9 +458,10 @@ def export_token(payload: TokenPayload):
 
     try:
         client = pronotepy.Client.token_login(
-            url=clean_url,
+            pronote_url=clean_url,
             username=payload.username,
-            token=payload.token
+            password=payload.token,
+            uuid=str(uuid.uuid4()),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Échec jeton : {str(e)}")
