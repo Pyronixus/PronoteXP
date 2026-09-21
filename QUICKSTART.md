@@ -89,6 +89,20 @@ In the terminal, press:
 Ctrl + C
 ```
 
+To restart Uvicorn without stopping the launcher, press:
+
+```text
+Ctrl + R
+```
+
+The current server process and its reload subprocess are stopped before the new instance starts.
+
+To stop the server while keeping the virtual environment and Python caches for the next launch, press:
+
+```text
+Ctrl + Alt + C
+```
+
 ## Troubleshooting
 
 - If the frontend cannot connect to the backend, verify that the app is running on port `8000`.

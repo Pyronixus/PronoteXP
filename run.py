@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import venv
 from pathlib import Path
@@ -71,7 +72,7 @@ def create_venv_with_progress():
 def install_requirements_with_progress():
     """Installe les dépendances en affichant le paquet en cours."""
     if not REQUIREMENTS_FILE.exists():
-        print(f"ERROR: Le fichier {REQUIREMENTS_FILE} n'existe pas.")
+        print(f"ERREUR : Le fichier {REQUIREMENTS_FILE} n'existe pas.")
         sys.exit(1)
 
     with open(REQUIREMENTS_FILE, "r", encoding="utf-8") as f:
@@ -104,6 +105,9 @@ def install_requirements_with_progress():
         length=30,
     )
 
+    if process.stdout is None:
+        raise RuntimeError("La sortie du processus d'installation est indisponible.")
+
     for line in process.stdout:
         if "Collecting" in line or "Processing" in line:
             parts = line.split()
@@ -122,7 +126,7 @@ def install_requirements_with_progress():
     process.wait()
 
     if process.returncode != 0:
-        print("\nERROR: L'installation des dépendances a échoué.")
+        print("\nERREUR : L'installation des dépendances a échoué.")
         input("Appuyez sur Entrée pour quitter...")
         sys.exit(1)
 
@@ -135,76 +139,246 @@ def install_requirements_with_progress():
     )
 
 
+def stop_server(process):
+    """Arrête Uvicorn et ses enfants, notamment le processus --reload."""
+    if process is None:
+        return
+
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    else:
+        if process.poll() is not None:
+            return
+        process.terminate()
+
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+def relay_server_output(process, line_count):
+    """Réaffiche la sortie d'Uvicorn et compte ses lignes dans le terminal."""
+    if process.stdout is None:
+        return
+
+    for line in process.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        line_count[0] += line.count("\n")
+
+
+def clear_uvicorn_output(line_count):
+    """Efface uniquement les lignes Uvicorn affichées depuis son lancement."""
+    count = line_count[0]
+    if count == 0:
+        return
+
+    sys.stdout.write(f"\033[{count}A")
+    for line_index in range(count):
+        sys.stdout.write("\033[2K")
+        if line_index < count - 1:
+            sys.stdout.write("\033[1B")
+    sys.stdout.write(f"\033[{max(count - 1, 0)}A\r")
+    sys.stdout.flush()
+
+
 def trigger_detached_cleanup():
-    """Lance la suppression dans un sous-processus complètement indépendant."""
-    print("\n[Cleaning] Lancement du nettoyage en arrière-plan...")
+    """Lance le nettoyage dans un processus qui attend la fin du lanceur."""
+    print("\nNettoyage lancé en arrière-plan...")
 
     cleanup_script = f"""
-import shutil, time, sys
+import os
+import shutil
+import stat
+import subprocess
+import time
 from pathlib import Path
 
-root_dir = Path(r"{ROOT_DIR}")
-venv_dir = Path(r"{VENV_DIR}")
+root_dir = Path({str(ROOT_DIR)!r})
+venv_dir = Path({str(VENV_DIR)!r})
 
-time.sleep(3) # wait for the main process to exit
-
-if venv_dir.exists():
-    for _ in range(5):
+def force_remove(path):
+    def handle_error(function, target, error_info):
         try:
-            shutil.rmtree(venv_dir)
-            break
-        except Exception:
-            time.sleep(0.5)
+            os.chmod(target, stat.S_IWRITE)
+            function(target)
+        except OSError:
+            pass
 
-for pycache in root_dir.rglob("__pycache__"):
-    try:
-        shutil.rmtree(pycache)
-    except Exception:
-        pass
+    for _ in range(20):
+        if not path.exists():
+            return
+        try:
+            shutil.rmtree(path, onerror=handle_error)
+        except OSError:
+            pass
+        if not path.exists():
+            return
+        if os.name == "nt":
+            subprocess.run(
+                ["cmd", "/c", "rmdir", "/s", "/q", str(path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        if not path.exists():
+            return
+        time.sleep(0.25)
+
+time.sleep(1)
+force_remove(venv_dir)
+for cache_dir in root_dir.rglob("__pycache__"):
+    force_remove(cache_dir)
 """
 
-    subprocess.Popen(
-        [sys.executable, "-c", cleanup_script],
-        creationflags=subprocess.DETACHED_PROCESS if sys.platform == "win32" else 0,
-        close_fds=True,
+    launch_options = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "close_fds": True,
+    }
+    if sys.platform == "win32":
+        launch_options["creationflags"] = subprocess.DETACHED_PROCESS
+    else:
+        launch_options["start_new_session"] = True
+
+    subprocess.Popen([sys.executable, "-c", cleanup_script], **launch_options)
+
+
+def show_shortcuts():
+    """Affiche les raccourcis disponibles pendant l'exécution du serveur."""
+    print("Raccourcis disponibles :")
+    print("   > Ctrl+R : arrêter puis relancer le serveur")
+    print("   > Ctrl+C : arrêter le serveur et supprimer venv et les caches")
+    print("   > Ctrl+Alt+C : arrêter le serveur en conservant venv et les caches")
+
+
+def keep_environment_shortcut_pressed():
+    """Détecte Ctrl+Alt+C sans dépendre des raccourcis de la console."""
+    if sys.platform != "win32":
+        return False
+
+    import ctypes
+
+    get_key_state = ctypes.windll.user32.GetAsyncKeyState
+    return all(
+        get_key_state(key_code) & 0x8000
+        for key_code in (0x11, 0x12, ord("C"))
     )
+
+
+def start_server():
+    creationflags = 0
+    if sys.platform == "win32":
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+
+    return subprocess.Popen(
+        [
+            str(VENV_PYTHON),
+            "-m",
+            "uvicorn",
+            "backend.main:app",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8000",
+            "--reload",
+        ],
+        creationflags=creationflags,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+
+def run_server():
+    """Exécute le serveur et le relance avec Ctrl+R sous Windows."""
+    server_process = None
+    keep_environment = False
+
+    try:
+        while True:
+            server_process = start_server()
+            server_output_lines = [0]
+            output_thread = threading.Thread(
+                target=relay_server_output,
+                args=(server_process, server_output_lines),
+                daemon=True,
+            )
+            output_thread.start()
+
+            if sys.platform == "win32":
+                import msvcrt
+
+                while server_process.poll() is None:
+                    if keep_environment_shortcut_pressed():
+                        print("\nArrêt du serveur en conservant l'environnement.")
+                        stop_server(server_process)
+                        server_process = None
+                        keep_environment = True
+                        return keep_environment
+                    if msvcrt.kbhit():
+                        key = msvcrt.getwch()
+                        if key == "\x00":
+                            key = f"\x00{msvcrt.getwch()}"
+                        if key == "\x12":
+                            stop_server(server_process)
+                            output_thread.join(timeout=1)
+                            clear_uvicorn_output(server_output_lines)
+                            print("Redémarrage du serveur...")
+                            server_process = None
+                            break
+                        if key == "\x03":
+                            raise KeyboardInterrupt
+                    time.sleep(0.1)
+                else:
+                    break
+            else:
+                server_process.wait()
+                break
+    except KeyboardInterrupt:
+        print("\nArrêt du serveur...")
+    finally:
+        stop_server(server_process)
+
+    return keep_environment
 
 
 def main():
     print("============================================================")
-    print("     Starting the PRONOTE Exporter environment")
+    print("     Démarrage de l'environnement PRONOTE Exporter")
     print("============================================================")
     print()
 
+    keep_environment = False
+
     try:
-        print("[Progress 1/3] Preparing the Python environment...")
+        print("[Étape 1/3] Préparation de l'environnement Python...")
         create_venv_with_progress()
 
-        print("\n[Progress 2/3] Installing dependencies...")
+        print("\n[Étape 2/3] Installation des dépendances...")
         install_requirements_with_progress()
 
-        print("\n[Progress 3/3] Starting the server...")
+        print("\n[Étape 3/3] Démarrage du serveur...")
         print("\n============================================================")
-        print("Open your browser at: http://localhost:8000")
+        print("Ouvrez votre navigateur à l'adresse : http://localhost:8000")
         print("============================================================\n")
 
-        subprocess.run(
-            [
-                str(VENV_PYTHON),
-                "-m",
-                "uvicorn",
-                "backend.main:app",
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "8000",
-                "--reload",
-            ]
-        )
+        show_shortcuts()
+        keep_environment = run_server()
     except KeyboardInterrupt:
-        print("\nServer stopped by user.")
+        print("\nArrêt demandé par l'utilisateur.")
     finally:
-        trigger_detached_cleanup()
+        if not keep_environment:
+            trigger_detached_cleanup()
+        else:
+            print("\nEnvironnement virtuel et caches conservés.")
 
 
 if __name__ == "__main__":

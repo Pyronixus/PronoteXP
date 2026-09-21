@@ -6,7 +6,6 @@ const API_BASE_URL = isGitHubPages ? RENDER_BACKEND_URL : "";
 let currentTab = "qr";
 let extractedQRData = null;
 let exportedJson = null;
-
 // Switch the visible form section while updating the active tab styling.
 function setTab(tab) {
   currentTab = tab;
@@ -19,6 +18,7 @@ function setTab(tab) {
     btn.setAttribute("aria-selected", String(active));
     sec.classList.toggle("hidden", !active);
   });
+  updateTutorialButton();
 }
 
 // Show feedback for the user while the app is processing login and export steps.
@@ -114,8 +114,11 @@ categorySummary.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeTableModal();
+    closeTutorialModal();
   }
 });
+
+updateTutorialButton();
 
 // Clear any previously decoded QR payload as soon as a new file is picked.
 function readQRCodeImage(input) {

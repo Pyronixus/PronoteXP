@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/assets/506.png" alt="PronoteXP" width="120" />
+<img src="frontend/assets/icons/506.png" alt="PronoteXP" width="120" />
 
 # PronoteXP
 
@@ -72,15 +72,17 @@ See [QUICKSTART.md](QUICKSTART.md) for full setup instructions.
 ## 📁 Project structure
 
 ```text
-pronotexp/
+PronoteXP/
+├── .github/
+│   └── workflows/
 ├── backend/
 │   ├── main.py           # FastAPI server and PRONOTE extraction routes
 │   └── requirements.txt
 ├── frontend/
 │   ├── assets/
-│   │   ├── 32.png
-│   │   ├── 192.png
-│   │   └── 506.png
+│   │   ├── icons/        # app icons
+│   │   │   └── 506png ...
+│   │   └── tutorial/      # step-by-step guide assets
 │   ├── export.js         # Worksheet / JSON export logic
 │   ├── index.html        # User interface
 │   ├── script.js         # Login flow and API calls
@@ -90,7 +92,7 @@ pronotexp/
 ├── README.md
 ├── QUICKSTART.md
 ├── CONTRIBUTING.md
-└── .gitignore
+├── .gitignore
 ```
 
 ## 🔒 Privacy

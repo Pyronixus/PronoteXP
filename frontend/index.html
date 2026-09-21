@@ -5,9 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PronoteXP — Exporter</title>
     <link rel="stylesheet" href="style.css" />
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/32.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="assets/192.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="assets/192.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="assets/icons/32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="assets/icons/192.png"
+    />
+    <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/192.png" />
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   </head>
@@ -31,9 +41,19 @@
       <div class="brand">
         <span class="brand-title">PronoteXP</span>
       </div>
-      <p class="subtitle">
-        Extraction et sauvegarde locale de vos données PRONOTE
-      </p>
+      <div class="subtitle-row">
+        <p class="subtitle">
+          Extraction et sauvegarde locale de vos données PRONOTE
+        </p>
+        <button
+          id="btn-tutorial"
+          type="button"
+          class="tutorial-trigger"
+          onclick="openTutorialModal()"
+        >
+          Tutoriel QR Code
+        </button>
+      </div>
 
       <div class="tab-bar" role="tablist">
         <button
@@ -336,6 +356,70 @@
     </main>
 
     <div
+      id="tutorial-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tutorial-modal-title"
+    >
+      <div class="modal-backdrop" onclick="closeTutorialModal()"></div>
+      <div class="modal-panel tutorial-panel">
+        <button
+          type="button"
+          class="modal-close"
+          aria-label="Fermer le tutoriel"
+          onclick="closeTutorialModal()"
+        ></button>
+        <div class="tutorial-heading">
+          <div>
+            <p class="modal-kicker">Tutoriel pas à pas</p>
+            <h2 id="tutorial-modal-title">Tutoriel</h2>
+          </div>
+          <span id="tutorial-step-count" class="tutorial-step-count"></span>
+        </div>
+        <div class="tutorial-media">
+          <img
+            id="tutorial-step-image"
+            src="assets/tutorial/qr-code/qr-btn.png"
+            alt="Illustration de l’étape du tutoriel"
+          />
+        </div>
+        <div class="tutorial-copy">
+          <h3 id="tutorial-step-title">Étape 1</h3>
+          <p id="tutorial-step-text"></p>
+        </div>
+        <div class="tutorial-navigation" aria-label="Navigation du tutoriel">
+          <button
+            id="tutorial-previous"
+            type="button"
+            class="tutorial-arrow"
+            aria-label="Étape précédente"
+            onclick="moveTutorialStep(-1)"
+          >
+            ←
+          </button>
+          <button
+            id="tutorial-next"
+            type="button"
+            class="btn primary tutorial-next"
+            onclick="moveTutorialStep(1)"
+          >
+            Suivant
+          </button>
+          <button
+            id="tutorial-forward"
+            type="button"
+            class="tutorial-arrow"
+            aria-label="Étape suivante"
+            onclick="moveTutorialStep(1)"
+          >
+            →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
       id="table-modal"
       class="modal hidden"
       role="dialog"
@@ -368,7 +452,8 @@
           <span>
             <strong>Ajouter de la couleur</strong>
             <small
-              >Le tableau sera coloré en fonction de la catégorie, matières...</small
+              >Le tableau sera coloré en fonction de la catégorie,
+              matières...</small
             >
           </span>
         </label>
@@ -383,6 +468,7 @@
       </div>
     </div>
   </body>
+  <script src="tutorial.js"></script>
   <script src="script.js"></script>
   <script src="export.js"></script>
 </html>
