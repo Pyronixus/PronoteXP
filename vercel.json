@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs22.x"
+    }
+  },
+  "rewrites": [
+    { "source": "/", "destination": "/frontend/index.html" },
+    { "source": "/:path*", "destination": "/frontend/:path*" }
+  ]
+}

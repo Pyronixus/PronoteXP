@@ -1,0 +1,19 @@
+{
+  "name": "pronotexp",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18.14"
+  },
+  "scripts": {
+    "build": "npm run typecheck",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "pronotets": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

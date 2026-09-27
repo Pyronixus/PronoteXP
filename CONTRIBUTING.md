@@ -1,80 +1,45 @@
-# 🤝 Contributing
+# Contributing
 
 Thanks for contributing to PronoteXP.
 
-## Project structure
+## Structure
 
-The repository is split into two main parts:
+- **`api/`** — Vercel serverless entry points.
+- **`backend/src/`** — PRONOTE integration and export formatting.
+- **`frontend/`** — static web interface and local file generation.
 
-- **`backend/`**: FastAPI API using `pronotepy` to authenticate to PRONOTE and extract data.
-- **`frontend/`**: static HTML, CSS, and JavaScript interface that collects forms, decodes QR codes, and builds the final export files.
+The PRONOTE client itself is provided by the published `pronotets` npm package; it is not copied into the repository.
 
-The public API routes are:
+## Setup
 
-- `/api/export/qrcode`
-- `/api/export/token`
-- `/api/export/credentials`
-
-## Local setup
+Requirements: Node.js 18.14+ and npm.
 
 ```bash
-git clone https://github.com/<your-org>/pronotexp.git
-cd pronotexp
-python run.py
+npm install
+npm run typecheck
 ```
 
-If `python` is not available on your system, use:
+For local serverless development:
 
 ```bash
-py run.py
+npx vercel dev
 ```
 
-This command creates the virtual environment, installs the dependencies from `backend/requirements.txt`, and starts the development server at:
+## Workflow
 
-```text
-http://localhost:8000
-```
+1. Create a dedicated branch.
+2. Make the requested changes.
+3. Run `npm run typecheck`.
+4. Test the affected login and export flows.
+5. Check that JSON, XLSX, and ODS exports still work.
 
-The frontend is served by the FastAPI app itself, so there is no separate Node/Vite process to configure.
+## Rules
 
-## Development workflow
-
-1. Fork the project and create a feature branch.
-2. Make your changes locally.
-3. Run the app with `run.py` and test the relevant flow in the browser.
-4. Keep the export logic and UI behavior aligned.
-5. Commit with a clear, descriptive message.
-6. Open a pull request describing the motivation and the impact of the change.
-
-## Guidelines
-
-- **Backend**: keep the export routes stateless and avoid persisting user data.
-- **Frontend**: prefer the existing vanilla JS structure instead of adding a framework or new heavy dependencies.
-- **Security**: never log credentials, tokens, or private student data.
-- **Compatibility**: preserve the three login modes and ensure the exported JSON remains consistent.
-- **Commits**: keep each commit focused on one logical change.
-
-## Testing locally
-
-Before opening a pull request, validate the feature in context:
-
-- QR code export flow,
-- token / URL login flow,
-- credentials login flow,
-- workbook generation (`.xlsx` / `.ods`),
-- JSON split-file mode.
-
-A simple local validation is to run the project, log in with a test account, export one category, and verify that the downloaded file is correctly generated.
-
-## Reporting a bug
-
-When opening an issue, include:
-
-- the login mode used (QR / Token / Credentials),
-- the exact error message,
-- the reproduction steps,
-- whether the issue happens in hosted mode or local mode.
+- Never log credentials, tokens, QR payloads, or school data.
+- Keep the API stateless.
+- Preserve the JSON fields expected by the frontend unless a change is intentional.
+- Keep dependencies minimal and document meaningful new dependencies.
 
 ## License
 
-By contributing, you agree that your changes will be distributed under the project's MIT license. See [LICENSE](LICENSE) for details.
+Contributions are distributed under the MIT license.

@@ -1,6 +1,4 @@
-const RENDER_BACKEND_URL = "https://pronotexp-api.onrender.com";
-const isGitHubPages = window.location.hostname.endsWith(".github.io");
-const API_BASE_URL = isGitHubPages ? RENDER_BACKEND_URL : "";
+const API_BASE_URL = window.PRONOTEXP_API_BASE || "";
 
 // UI state: track the active tab and cached QR payload processed from the uploaded image.
 let currentTab = "qr";

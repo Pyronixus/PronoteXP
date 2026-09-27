@@ -33,6 +33,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Configure API URL
+        run: |
+          printf 'window.PRONOTEXP_API_BASE = "%s";\n' "${PRONOTEXP_API_BASE}" > frontend/config.js
+        env:
+          PRONOTEXP_API_BASE: ${{ vars.PRONOTEXP_API_BASE }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

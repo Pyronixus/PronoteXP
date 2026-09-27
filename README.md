@@ -1,113 +1,168 @@
-<div align="center">
-
-<img src="frontend/assets/icons/506.png" alt="PronoteXP" width="120" />
-
 # PronoteXP
 
-**Local extraction and backup of your PRONOTE data**
+PronoteXP is a web application that exports PRONOTE data to JSON and spreadsheet files.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+The project uses **TypeScript**, **pronoteTs**, and **Vercel serverless functions**. The frontend is static and the PRONOTE connection runs only when an export request is made.
 
-</div>
+## Features
 
----
+- QR-code login
+- Token / URL login
+- Username and password login
+- Optional ENT login providers
+- Export to JSON
+- Optional one-file-per-category JSON export
+- Export to `.xlsx` and `.ods`
+- Runs without a permanent backend server
 
-## ✨ Overview
-
-PronoteXP exports your PRONOTE data into a clean JSON export and a spreadsheet workbook. It supports the main PRONOTE categories such as grades, timetable, homework, absences, delays, punishments, news, and menus.
-
-The interface lets you:
-
-- choose a login mode: QR Code, Token / URL, or credentials,
-- select export categories from the UI,
-- download the result as JSON and as an Excel (`.xlsx`) or LibreOffice (`.ods`) workbook,
-- split the JSON into one file per category using the separate-files option,
-- keep everything local to the browser after the API response is received.
-
-Three login modes are supported:
-
-| Mode            | Description                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| **QR Code**     | Scan the PRONOTE mobile login QR code + 4-digit PIN                                                    |
-| **Token / URL** | PRONOTE URL + username + session token                                                                 |
-| **Credentials** | URL + username + password, with an optional ENT (MonLycée.net, Académie de Versailles, Open ENT NG...) |
-
-## 🧠 How it works
+## Architecture
 
 ```text
-┌─────────────┐      HTTP POST       ┌────────────────────┐      pronotepy      ┌──────────┐
-│  Frontend   │ ───────────────────▶ │ FastAPI backend    │ ──────────────────▶ │ PRONOTE  │
-│ (index.html)│                      │ (backend/main.py)  │                     │ (ENT)    │
-└─────────────┘ ◀────────────────── └────────────────────┘ ◀────────────────── └──────────┘
-      │                 JSON export returned to browser
-      ▼
-   Local generation of XLSX / ODS + JSON download
+Browser
+  │
+  │ POST /api/export/*
+  ▼
+Vercel serverless function
+  │
+  │ pronoteTs
+  ▼
+PRONOTE / ENT
+  │
+  ▼
+JSON response
+  │
+  ▼
+Browser generates JSON / XLSX / ODS locally
 ```
 
-1. The browser collects the login information based on the selected mode and decodes the QR code client-side with `jsQR`.
-2. A request is sent to one of the backend routes: `/api/export/qrcode`, `/api/export/token`, or `/api/export/credentials`.
-3. The backend authenticates with PRONOTE via `pronotepy` and extracts the requested data.
-4. The result is returned to the browser where the workbook is generated locally and the files are downloaded.
-5. Nothing is stored server-side and no export is persisted on the API.
+The API is stateless. A serverless function creates a `pronoteTs` client, logs in, reads the requested data, returns JSON, and finishes.
 
-## 🚀 Usage
+There is no application server that needs to stay running 24/7.
 
-Two ways to run PronoteXP:
+## Requirements
 
-- **Online**: the frontend is hosted on GitHub Pages and the backend is deployed on Render.
-- **Locally**: install the dependencies and start the app from the repository with `run.py`.
+- Node.js 18.14 or newer
+- npm
+- A Vercel project for the serverless API
 
-See [QUICKSTART.md](QUICKSTART.md) for full setup instructions.
+## Install
 
-## 📦 Features
+```bash
+npm install
+```
 
-- Export to JSON with optional per-category split files.
-- Workbook export in `.xlsx` or `.ods` via the browser.
-- Automatic detection of empty categories in the UI.
-- One sheet per category and metadata sheet in the generated workbook.
-- Privacy-first behavior: credentials are only used for the export request and are not stored.
+`pronoteTs` is installed from npm as the `pronotets` package. It is intentionally **not vendored in this repository**.
 
-## 📁 Project structure
+## Local development
+
+Run the TypeScript checks with:
+
+```bash
+npm run typecheck
+```
+
+`npm run build` runs the same validation:
+
+```bash
+npm run build
+```
+
+To run the Vercel functions locally, use:
+
+```bash
+npx vercel dev
+```
+
+Vercel will expose the frontend and `/api/export/*` endpoints locally.
+
+## Deployment
+
+### Vercel
+
+This is the simplest setup because the frontend and API can live in the same deployment.
+
+1. Import the repository into Vercel.
+2. Keep the project root at the repository root.
+3. Deploy.
+
+The included `vercel.json` configures the TypeScript API functions and routes the root URL to the frontend.
+
+The API endpoints are:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/export/qrcode` | QR-code login and export |
+| `POST /api/export/token` | Token-based login and export |
+| `POST /api/export/credentials` | Username/password login and export |
+
+### GitHub Pages + Vercel
+
+You can also host the static frontend on GitHub Pages and keep the API on Vercel.
+
+Set the GitHub repository variable `PRONOTEXP_API_BASE` to the public URL of the Vercel deployment, for example:
+
+```text
+https://your-project.vercel.app
+```
+
+The GitHub Pages workflow writes that value to `frontend/config.js` during deployment.
+
+## Login modes
+
+### QR code
+
+Use the QR code generated by PRONOTE and its 4-digit PIN.
+
+### Token / URL
+
+Provide the PRONOTE URL, username, and session token.
+
+### Credentials
+
+Provide the PRONOTE URL, username, password, and select an ENT provider when required by your school.
+
+## Project structure
 
 ```text
 PronoteXP/
-├── .github/
-│   └── workflows/
-├── backend/
-│   ├── main.py           # FastAPI server and PRONOTE extraction routes
-│   └── requirements.txt
+├── .github/workflows/static.yml
+├── api/export/
+│   ├── credentials.ts
+│   ├── qrcode.ts
+│   └── token.ts
+├── backend/src/
+│   ├── exporter.ts
+│   └── http.ts
 ├── frontend/
 │   ├── assets/
-│   │   ├── icons/        # app icons
-│   │   │   └── 506png ...
-│   │   └── tutorial/      # step-by-step guide assets
-│   ├── export.js         # Worksheet / JSON export logic
-│   ├── index.html        # User interface
-│   ├── script.js         # Login flow and API calls
-│   └── style.css
-├── run.py                # Local launcher (venv + install + uvicorn)
-├── LICENSE
+│   ├── config.js
+│   ├── export.js
+│   ├── index.html
+│   ├── script.js
+│   ├── style.css
+│   └── tutorial.js
+├── package.json
+├── tsconfig.json
+├── vercel.json
 ├── README.md
 ├── QUICKSTART.md
 ├── CONTRIBUTING.md
-├── .gitignore
+└── LICENSE
 ```
 
-## 🔒 Privacy
+## Privacy
 
-Your credentials are used only during the PRONOTE session needed for the export. They are never saved to disk and no data is kept server-side after the response is sent back to the browser.
+PronoteXP does not intentionally persist PRONOTE credentials, tokens, QR payloads, or exported school data.
 
-## 📄 License
+Because the API runs on a cloud platform, platform-level logs and operational data may still be handled according to the provider's policies.
 
-Distributed under the **MIT** license. See [LICENSE](LICENSE) for the full text.
+## Security
 
-```text
-MIT License
-Copyright (c) 2026 Pyro
-```
+- Do not log credentials or session tokens.
+- Do not store PRONOTE session data in shared persistent storage.
+- Use HTTPS in production.
+- Keep `pronotets` and the project dependencies up to date.
 
-## 🤝 Contributing
+## License
 
-Contributions are welcome. Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md).
+MIT License. See [LICENSE](LICENSE).
